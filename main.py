@@ -4,6 +4,8 @@ from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 from gspread.exceptions import APIError
 import time
+import re
+import csv
 
 def first_empty_row(sheet):
     str_list = list(filter(None, sheet.col_values(1)))  # Get all values in column A
@@ -40,8 +42,8 @@ def update_sheet_with_retry(sheet, values, start_row, end_row, max_attempts=5):
     while attempt < max_attempts:
         try:
             sheet.batch_update([{
-                'range': f'A{start_row}:A{end_row}',
-                'values': [[cell[2] for cell in values[i:i+1]] for i in range(0, len(values), 1)]
+                'range': f'A{start_row}:b{end_row}',
+                'values': [[cell[2] for cell in values[i:i+2]] for i in range(0, len(values), 2)]
             }])
             return
         except APIError as e:
@@ -55,6 +57,15 @@ def update_sheet_with_retry(sheet, values, start_row, end_row, max_attempts=5):
                 raise
 
 
+def filter_salesforce_ids_dict(account_dict):
+    # This pattern matches 15 or 18 character Salesforce IDs
+    pattern = re.compile(r'^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$')
+    
+    # Create a new dictionary with only the entries that have valid IDs
+    filtered_dict = {name: id for name, id in account_dict.items() if pattern.match(id)}
+    
+    return filtered_dict
+
 
 
 if __name__ == "__main__":
@@ -63,9 +74,9 @@ if __name__ == "__main__":
     #open CSV from somewhere
     csv_file_path = select_csv_file()
     data = read_csv_file(csv_file_path)
-    account_ids = data['Account ID'].values.tolist()
-    account_links = [f"https://reddsummit.lightning.force.com/lightning/r/Account/{x}/view" for x in account_ids]
+    account_dict = dict(zip(data['Account Name'], data['Account ID']))
 
+    filtered_account_dict = filter_salesforce_ids_dict(account_dict)
 
 
     row = first_empty_row(sheet)
@@ -74,9 +85,10 @@ if __name__ == "__main__":
     # Prepare batch update
     batch_update = []
 
-    for link in account_links:
+    for name, id in filtered_account_dict.items():
         row_data = [
-            (row, headers.index("Links") + 1, link),
+            (row, headers.index("Name") + 1, name),
+            (row, headers.index("Link") + 1, f"https://reddsummit.lightning.force.com/lightning/r/Account/{id}/view")
         ]
         batch_update.extend(row_data)
         row += 1
