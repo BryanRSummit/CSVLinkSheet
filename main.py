@@ -62,7 +62,8 @@ def filter_salesforce_ids_dict(account_dict):
     pattern = re.compile(r'^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$')
     
     # Create a new dictionary with only the entries that have valid IDs
-    filtered_dict = {name: id for name, id in account_dict.items() if pattern.match(id)}
+    #filtered_dict = {name: (id, size) for name, id, size in account_dict.items() if pattern.match(id)}
+    filtered_dict = {name: (id, size) for name, (id, size) in account_dict.items() if pattern.match(id)}
     
     return filtered_dict
 
@@ -74,7 +75,8 @@ if __name__ == "__main__":
     #open CSV from somewhere
     csv_file_path = select_csv_file()
     data = read_csv_file(csv_file_path)
-    account_dict = dict(zip(data['Account Name'], data['Account ID']))
+    #account_dict = dict(zip(data['Account Name'], data['Account ID'], data["Average Policy Size"]))
+    account_dict = {name: (id, size) for name, id, size in zip(data['Account Name'], data['Account ID'], data["Average Policy Size"])}
 
     filtered_account_dict = filter_salesforce_ids_dict(account_dict)
 
@@ -85,10 +87,11 @@ if __name__ == "__main__":
     # Prepare batch update
     batch_update = []
 
-    for name, id in filtered_account_dict.items():
+    for name, info in filtered_account_dict.items():
         row_data = [
             (row, headers.index("Name") + 1, name),
-            (row, headers.index("Link") + 1, f"https://reddsummit.lightning.force.com/lightning/r/Account/{id}/view")
+            (row, headers.index("AVG Policy Size") + 1, info[1]),
+            (row, headers.index("Link") + 1, f"https://reddsummit.lightning.force.com/lightning/r/Account/{info[0]}/view")
         ]
         batch_update.extend(row_data)
         row += 1

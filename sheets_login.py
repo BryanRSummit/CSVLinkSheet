@@ -9,5 +9,5 @@ def sheets_login():
     gc = gspread.authorize(gmailCreds)
 
     # Open the Google Sheet
-    sheet = gc.open('CSV Link List Sheet').sheet1
+    sheet = gc.open('CSV Link Updated').sheet1
     return sheet
